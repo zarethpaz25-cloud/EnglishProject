@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>English project</title>
+ <link rel="stylesheet" href="style.css">
+ <script src="script.js" defer></script>
+ <style>
+    h1{text-align: center;
+       color:crimson;
+       text-align: center;
+       font-family: Georgia, 'Times New Roman', Times, serif;}
+    canvas{
+        display: block;
+        margin-left:auto;
+        margin-right:auto;
+        margin-top:auto;
+        margin-bottom:auto;
+        border-style: solid;
+        border-color:brown;
+        border-width: 5px;
+        
+    }
+</style>
+</head>
+
+<body style="background-color: black;"> 
+   
+<h1>Placeholder</h1>
+<canvas id="islandCanvas" width="800" height="800"></canvas>
+<script>
+
+const canvas = document.getElementById('islandCanvas');
+const ctx = canvas.getContext('2d');
+const homeLabel = 'Home'
+
+currentScreen='map';
+savageryPercentage=0;
+distanceFromMonster=100;
+beackIntroComplete=false;
+beginBeackChallenge=false;
+jungleIntroComplete=false;
+beginJungleChallenge=false;
+mountainIntroComplete=false;
+beginMountainComplete=false;
+castleRockIntroComplete=false;
+beginCastleRockChallenge=false;
+TowerIntroComplete=false;
+beginTowerChallenge=false;
+mapLocations = [
+    { x: 200, y: 300, name: 'Beach', number: 1, color: '#6B8E23' },
+    { x: 350, y: 220, name: 'Jungle', number: 2, color: '#228B22' },
+    { x: 500, y: 280, name: 'Mountain', number: 3, color: '#8B8682' },
+    { x: 650, y: 380, name: 'CastleRock', number: 4, color: '#696969' },
+    { x: 800, y: 250, name: 'Tower', number: 5, color: '#CD853F' }
+    ];
+hBC={x:50,y:35};
+hBR=30;
+startButtonLeft=300;
+startButtonTop=225;
+startButtonBottom=startButtonTop+200;
+startButtonRight=startButtonLeft+400;
+currentGameStarted=null;
+currentLevel=null;
+homeButton=null;
+canvas.width = 1000;
+canvas.height = 600;
+
+
+
+//event listeners
+canvas.addEventListener('click', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    
+    // Only allow map selection if on map screen
+    if (currentScreen === 'map') {
+    for (let loc of mapLocations) {
+        if (distance(loc.x, loc.y, mouseX, mouseY) < 26) {
+            currentScreen = loc.name;
+            switchScreen();
+            
+            // Start background music when first level is clicked
+            if (backgroundMusic.paused) {
+                backgroundMusic.loop = true;
+                backgroundMusic.play().catch(e => console.log('Music error:', e));
+            }
+            return;
+        }
+    }
+}
+    
+    if (distance(hBC.x, hBC.y, mouseX, mouseY) < 20) {
+        let choice = confirm("Do you wish to leave this level?");
+        if (choice == true) {
+            currentScreen = 'map';
+            switchScreen();
+        }
+    }
+    else if (currentLevel != null && currentGameStarted === null) {
+        if (mouseX > startButtonLeft && mouseX < startButtonRight && mouseY > startButtonTop && mouseY < startButtonBottom) {
+            console.log('Start button clicked - currentLevel:', currentLevel);
+            currentGameStarted = currentLevel;
+            if (backgroundMusic.paused) {
+            backgroundMusic.loop = true;
+            backgroundMusic.play();
+    }
+           
+        }
+
+    }
+   
+   // Check for YES button on game over/win screen
+if (distance(mouseX, mouseY, 350, 450) < 30) {
+    if (currentScreen === 'Beach' && (level1Over || level1Won)) {
+        drawBeach();
+        if (backgroundMusic.paused) {
+            backgroundMusic.loop = true;
+            backgroundMusic.play();
+        }
+        return;
+    }
+    else if (currentScreen === 'Jungle' && level2Won) {
+        drawJungle();
+        if (backgroundMusic.paused) {
+            backgroundMusic.loop = true;
+            backgroundMusic.play();
+        }
+        return;
+    }
+    else if (currentScreen === 'Mountain' && (level3Won || mountainPoints >= 1000 || timeLimit <= 0)) {
+        drawMountain();
+        if (backgroundMusic.paused) {
+            backgroundMusic.loop = true;
+            backgroundMusic.play();
+        }
+        return;
+    }
+    else if (currentScreen === 'CastleRock' && level4Won) {
+        drawCastleRock();
+        if (backgroundMusic.paused) {
+            backgroundMusic.loop = true;
+            backgroundMusic.play();
+        }
+        return;
+    }
+    else if (currentScreen === 'Tower' && (level5Won || level5Over)) {
+        drawTower();
+        if (backgroundMusic.paused) {
+            backgroundMusic.loop = true;
+            backgroundMusic.play();
+        }
+        return;
+    }
+}
+// Check for NO button
+else if (distance(mouseX, mouseY, 580, 450) < 30) {
+    currentScreen = 'map';
+    switchScreen();
+    if (backgroundMusic.paused) {
+        backgroundMusic.loop = true;
+        backgroundMusic.play();
+    }
+    return;
+}
+    
+});
+    
+window.addEventListener("keydown", (event) => {
+    if (event.key === 'b') {
+        let choice = confirm("Do you wish to leave this level?");
+        if (choice == true) {
+            currentScreen = 'map';
+            currentLevel = null;
+            currentGameStarted = null;
+            switchScreen();
+        }
+    }
+    if (event.key === "ArrowUp") {
+        if (currentGameStarted === 'Beach' && !isJumping) {
+            velocity = jumpStrength;
+            isJumping = true;
+            jumpSound.currentTime=0;
+            jumpSound.play();
+        }
+    }
+    if (event.key == 'd') {
+        if (currentGameStarted === 'CastleRock' && !boulderFalling) {
+            boulderFalling = true;
+        }
+    }
+    if (currentGameStarted === 'Tower') {
+        if (event.key === 'ArrowLeft' || event.key === 'a') {
+            leftPressed = true;
+        }
+        if (event.key === 'ArrowRight' || event.key === 'd') {
+            rightPressed = true;
+        }
+        if ((event.key === 'ArrowUp' || event.key === ' ' || event.key === 'w') && currentGameStarted === 'Tower' && isOnGround) {
+            playerVY = jumpPower;
+            isOnGround = false;
+        }
+    }
+});
+
+window.addEventListener("mousedown", (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    if (currentGameStarted === 'Jungle') {
+        isDragging = true;
+        dragStartX = mouseX;
+        dragStartY = mouseY;
+    }
+    if (currentGameStarted === 'Mountain' && distance(trashX, trashY, mouseX, mouseY) < 50) {
+        isDraggingItem = true;
+    }
+});
+
+window.addEventListener("mousemove", (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    if (currentGameStarted === 'Jungle') {
+        dragCurrentX = mouseX;
+        dragCurrentY = mouseY;
+    }
+    if (currentGameStarted === 'Mountain' && isDraggingItem) {
+        trashX = mouseX;
+        trashY = mouseY;
+    }
+});
+
+window.addEventListener('mouseup', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    if (currentGameStarted === 'Jungle' && dragStartX != null && dragStartY != null) {
+        const dx = dragStartX - dragCurrentX;
+        const dy = dragStartY - dragCurrentY;
+        const dragDistance = Math.sqrt(Math.pow(dragCurrentX - dragStartX, 2) + Math.pow(dragCurrentY - dragStartY, 2));
+        power = Math.min(dragDistance, maxPower);
+        const angleRad = Math.atan2(dy, dx);
+        spearVX = power * Math.cos(angleRad);
+        spearVY = power * Math.sin(angleRad);
+        isDragging = false;
+        spearReleased = true;
+    }
+    if (currentGameStarted === 'Mountain' && isDraggingItem) {
+        isDraggingItem = false;
+        trashAwarded = false;
+    }
+});
+
+window.addEventListener("keyup", (event) => {
+    if (event.key === 'ArrowLeft' || event.key === 'a') {
+        leftPressed = false;
+    }
+    if (event.key === 'ArrowRight' || event.key === 'd') {
+        rightPressed = false;
+    }
+});
+
+function distance(x1, y1, x2, y2) {
+    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+}
+
+const homeImg = new Image();
+homeImg.src = 'homeButton.png';
+homeImg.onload = () => {
+    homeButton = homeImg;
+};
+
+function drawHomeButton() {
+    if (homeButton) {
+        
+        ctx.beginPath();
+        ctx.arc(hBC.x,hBC.y,30,0,Math.PI*2);
+        ctx.fillStyle='white';
+        ctx.fill();
+        ctx.drawImage(homeButton, hBC.x-25, hBC.y-25, 50, 50);
+    }
+}
+
+function gameLoop(currentTime) {
+    requestAnimationFrame(gameLoop);
+    if (currentTime - lastFrameTime >= frameDelay) {
+        lastFrameTime = currentTime;
+        frameCount++;
+        
+        if (currentGameStarted === 'Beach') {
+            updateBeach();
+        } else if (currentGameStarted === 'Jungle') {
+            updateJungle();
+        } else if (currentGameStarted === 'Mountain') {
+            updateMountain();
+        } else if (currentGameStarted === 'CastleRock') {
+            updateCastleRock();
+        } else if (currentGameStarted === 'Tower') {
+            updateTower();
+        }
+    }
+}
+requestAnimationFrame(gameLoop);
+
+//overall
+const gravity = 0.5;
+const jumpStrength = -10;
+let isJumping = false;
+let velocity = 0;
+let lastFrameTime = 0;
+const frameDelay = 1000 / 30;
+let frameIndex = 0;
+let frameCount = 0;
+
+//beach variables + constants 
+let conchX = 1200;
+let conchY = 300;
+let floor1X0 = 0;
+let floor1X1 = floor1X0 + canvas.width;
+let floor2X0 = 1000;
+let floor2X1 = floor2X0 + canvas.width;
+let groundLevel = 300;
+let playerY = 250;
+let playerX = 100;
+const frameFiles = ['oneFoot.png', 'leftLeg.png', 'rightLeg.png'];
+const frameFilesFlipped=['oneFootFlipped.png','leftLegFlipped.png','rightLegFlipped.png'];
+const frames = [];
+const framesFlipped=[];
+let framesLoaded = 0;
+let flippedFramesLoaded=0;
+let animationSpeed = 3;
+let animationCounter = 0;
+let level1Over = false;
+let level1Won = false;
+let beachPowerPoints = 0;
+let spawnTimer = 1;
+let timeUntilNextConch = 60;
+let conchAwarded = false;
+let beachGameBackground1 = null;
+let beachGameBackground2 = null;
+let conch = null;
+const jumpSound= new Audio('jumpSound.mp3');
+const gameOverSound= new Audio('gameOverSound.mp3');
+const gameWonSound = new Audio('gameWonSound.mp3');
+const backgroundMusic= new Audio('backgroundMusic.mp3');
+for (let i = 0; i < frameFiles.length; i++) {
+    const img = new Image();
+    img.src = frameFiles[i];
+    img.onload = () => {
+        framesLoaded++;
+    };
+    frames.push(img);
+}
+
+
+const gameImg = new Image();
+gameImg.src = 'beachBack1.png';
+gameImg.onload = () => {
+    beachGameBackground1 = gameImg;
+};
+
+const otherGameImg = new Image();
+otherGameImg.src = 'beachBack2.png';
+otherGameImg.onload = () => {
+    beachGameBackground2 = otherGameImg;
+};
+
+const conchImg = new Image();
+conchImg.src = 'conch.png';
+conchImg.onload = () => {
+    conch = conchImg;
+};
+
+function updatePlayerBeach() {
+    playerY += velocity;
+    velocity += gravity;
+
+    if (playerY > groundLevel) {
+        playerY = groundLevel;
+        velocity = 0;
+        isJumping = false;
+    }
+}
+
+function beachGameOver() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const img = new Image();
+    img.src = 'beach.png';
+    img.onload = () => {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.fillStyle='white';
+    ctx.globalAlpha=0.5;
+    ctx.fillRect(190,100,600,450);
+    ctx.globalAlpha=1.0;
+    ctx.fillStyle = 'maroon';
+    ctx.font = 'bold 100px monospace';
+    ctx.strokeStyle='black';
+    ctx.lineWidth=4;
+    ctx.fillText('GAME OVER', 250, 300);
+    ctx.strokeText('GAME OVER',250,300);
+    ctx.fillStyle='maroon';
+    ctx.font='bold 26px monospace';
+    ctx.fillText('Do you wish to play again?',300,380);
+    ctx.fillText('YES',350,450);
+    ctx.fillText('NO',580,450);
+    currentGameStarted = null;
+    backgroundMusic.pause();
+    backgroundMusic.currentTime = 0;  // Reset for next game
+    gameOverSound.currentTime=0;
+    gameOverSound.play();
+    drawHomeButton();
+    
+    }
+    
+}
+
+function beachGameWon() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const img = new Image();
+    img.src = 'beach.png';
+    img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.fillStyle='white';
+    ctx.globalAlpha=0.5;
+    ctx.fillRect(190,100,600,450);
+    ctx.globalAlpha=1.0;
+    ctx.fillStyle = 'maroon';
+    ctx.font = 'bold 100px monospace';
+    ctx.strokeStyle='black';
+    ctx.lineWidth=4;
+    ctx.fillText('GAME WON', 250, 300);
+    ctx.strokeText('GAME WON',250,300);
+    ctx.fillStyle='maroon';
+    ctx.font='bold 26px monospace';
+    ctx.fillText('Do you wish to play again?',300,380);
+    ctx.fillText('YES',350,450);
+    ctx.fillText('NO',580,450);
+    currentGameStarted = null;
+    backgroundMusic.pause();
+    backgroundMusic.currentTime = 0;  // Reset for next game
+    gameWonSound.currentTime=0;
+    gameWonSound.play();
+    drawHomeButton();
+    
+    }
+    
+}
+
+function updateBeach() {
+    
+    if (level1Over) {
+        beachGameOver();
+        return;
+    }
+    if (level1Won) {
+        beachGameWon();
+        return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (beachGameBackground1) {
+        ctx.drawImage(beachGameBackground1, floor1X0, 0, canvas.width, canvas.height);
+    }
+    if (beachGameBackground2) {
+        ctx.drawImage(beachGameBackground2, floor2X0, 0, canvas.width, canvas.height);
+    }
+    if (conch) {
+        ctx.drawImage(conch, conchX, conchY, 200, 200);
+    }
+    conchX -= 25;
+    
+    if (floor1X1 > 0) {
+        floor1X0 -= 20;
+        floor1X1 -= 20;
+    } else {
+        floor1X0 = 1000;
+        floor1X1 = floor1X0 + canvas.width;
+        floor1X0 -= 20;
+        floor1X1 -= 20;
+    }
+    
+    if (floor2X1 > 0) {
+        floor2X0 -= 20;
+        floor2X1 -= 20;
+    } else {
+        floor2X0 = 1000;
+        floor2X1 = floor2X0 + canvas.width;
+        floor2X0 -= 20;
+        floor2X1 -= 20;
+    }
+    
+    ctx.font = '24px monospace';
+    ctx.fillStyle = 'black';
+    ctx.fillText('points ' + beachPowerPoints, 825, 50);
+    
+    if (framesLoaded === frameFiles.length) {
+        animationCounter++;
+        if (animationCounter >= animationSpeed) {
+            animationCounter = 0;
+            frameIndex++;
+            if (frameIndex >= frames.length) frameIndex = 0;
+        }
+        updatePlayerBeach();
+        ctx.drawImage(frames[frameIndex], playerX, playerY, 200, 200);
+    }
+    
+    if (conchX + 30 < playerX && !conchAwarded && playerY < groundLevel) {
+        conchAwarded = true;
+        beachPowerPoints += 100;
+    }
+    
+    if (!conchAwarded && playerY >= groundLevel - 10) {
+        const distanceToConch = Math.sqrt(
+            Math.pow((playerX + 100) - conchX - 80, 2) +
+            Math.pow((playerY + 100) - conchY - 80, 2)
+        );
+        if (distanceToConch < 60) {
+            level1Over = true;
+            beachGameOver();
+            return;
+        }
+    }
+    
+    if (conchX < -100 && spawnTimer <= 0) {
+        spawnTimer = timeUntilNextConch;
+        conchX = 1000;
+        conchAwarded = false;
+        timeUntilNextConch = Math.random() * 60 + 30;
+    }
+    if (spawnTimer > 0) spawnTimer--;
+    
+    if (beachPowerPoints >= 1000) {
+        level1Won = true;
+        beachGameWon();
+    }
+    
+    drawHomeButton();
+}
+
+function drawBeach() {
+    trashX = null;
+    trashY = null;
+    level1Over = false;
+    level1Won = false;
+    beachPowerPoints = 0;
+    playerY = groundLevel;
+    velocity = 0;
+    isJumping = false;
+    conchX = 1000;
+    conchY = 350;
+    floor1X0 = 0;
+    floor1X1 = 1000;
+    floor2X0 = 1000;
+    floor2X1 = 2000;
+    frameIndex = 0;
+    animationCounter = 0;
+    conchAwarded = false;
+    currentLevel = 'Beach';
+    
+    const img = new Image();
+    img.src = 'beach.png';
+    img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        drawStartButton();
+        drawHomeButton();
+    };
+}
+
+// Jungle variables
+let pigX = 700;
+let pigY = 300;
+let spearActive = false;
+let spearX = 100;
+let spearY = 300;
+let handX = 200;
+let handY = 300;
+let power = 0;
+let maxPower = 20;
+let spearVX = null;
+let spearVY = null;
+let junglePoints = 0;
+let level2Won = false;
+let pigHitBoxRadius = 80;
+let dragStartX = null;
+let dragStartY = null;
+let dragCurrentX = null;
+let dragCurrentY = null;
+let isDragging = false;
+let junglegroundLevel = 500;
+let spearReleased = false;
+let pig=null;
+let jungleBack=null;
+let spearImg=null;
+const throwSound = new Audio('throw.mp3');
+const hitSound= new Audio('hitsPig.mp3')
+
+const jungleImg = new Image();
+jungleImg.src = 'jungleBack.png';
+jungleImg.onload = () => {
+    jungleBack = jungleImg;
+};
+
+const p = new Image();
+    p.src = 'pig.png';
+    p.onload = () => {
+    pig = p;
+};
+    const s = new Image();
+    s.src = 'spear.png';
+    s.onload = () => {
+    spearImg = s;
+};
+
+
+function jungleGameWon() {
+     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const img = new Image();
+    img.src = 'jungle.png';
+    img.onload = () => {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.fillStyle='white';
+    ctx.globalAlpha=0.5;
+    ctx.fillRect(190,100,600,450);
+    ctx.globalAlpha=1.0;
+    ctx.fillStyle = 'maroon';
+    ctx.font = 'bold 100px monospace';
+    ctx.strokeStyle='black';
+    ctx.lineWidth=4;
+    ctx.fillText('GAME WON', 250, 300);
+    ctx.strokeText('GAME WON',250,300);
+    ctx.fillStyle='maroon';
+    ctx.font='bold 26px monospace';
+    ctx.fillText('Do you wish to play again?',300,380);
+    ctx.fillText('YES',350,450);
+    ctx.fillText('NO',580,450);
+    currentGameStarted = null;
+    backgroundMusic.pause();
+    backgroundMusic.currentTime = 0;  // Reset for next game
+    gameWonSound.currentTime=0;
+    gameWonSound.play();
+    drawHomeButton();
+    
+    }
+}
+
+function updateJungle() {
+    if (level2Won) {
+        jungleGameWon();
+        return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(jungleBack,0,0,canvas.width,canvas.height);
+    if (spearReleased) {
+        spearActive = true;
+        spearX = handX;
+        spearY = handY;
+        spearReleased = false;
+        throwSound.currentTime = 0;
+        throwSound.play();
+    
+    }
+    
+    if (isDragging) {
+        ctx.beginPath();
+        ctx.lineWidth=6;
+        ctx.moveTo(dragStartX, dragStartY);
+        ctx.lineTo(dragCurrentX, dragCurrentY);
+        ctx.strokeStyle = 'white';
+        ctx.stroke();
+        
+    }
+    
+    if (spearActive) {
+        spearX += spearVX;
+        spearY += spearVY;
+        spearVY += gravity;
+        // Calculate spear tip position
+         const spearAngle = Math.atan2(spearVY, spearVX);
+        const spearTipX = spearX + Math.cos(spearAngle) * 100;  // Half of spearWidth (200/2)
+        const spearTipY = spearY + Math.sin(spearAngle) * 100;
+
+    if (distance(spearTipX, spearTipY, pigX+80, pigY+80) < pigHitBoxRadius) {
+            junglePoints += 100;
+            spearActive = false;
+            pigX = Math.random() * 300 + 500;
+            pigY = 350;
+            hitSound.currentTime = 0;
+            hitSound.play();
+        }
+        if (spearY > junglegroundLevel) {
+            spearActive = false;
+        }
+    }
+    if (junglePoints >= 1000) {
+        level2Won = true;
+    }
+    
+    
+    
+    if (spearActive && spearImg) {
+    const spearAngle = Math.atan2(spearVY, spearVX);
+    const spearWidth = 200;   // Width of your spear image
+    const spearHeight = 20;   // Height of your spear image
+    
+    ctx.save();
+    ctx.translate(spearX, spearY);
+    ctx.rotate(spearAngle);
+    ctx.drawImage(spearImg, 0, -spearHeight/2, spearWidth, spearHeight);
+    ctx.restore();
+}
+    
+    ctx.font = 'bold 24px monospace';
+    ctx.fillStyle = 'white';
+    ctx.fillText('Points ' + junglePoints, 850, 50);
+    ctx.drawImage(pig,pigX,pigY,160,160);
+    drawHomeButton();
+}
+
+function drawJungle() {
+    pigX = 700;
+    pigY = 350;
+    spearReleased = false;
+    spearActive = false;
+    spearX = 100;
+    spearY = 300;
+    handX = 200;
+    handY = 300;
+    power = 0;
+    maxPower = 20;
+    spearVX = null;
+    spearVY = null;
+    junglePoints = 0;
+    level2Won = false;
+    dragStartX = null;
+    dragStartY = null;
+    dragCurrentX = null;
+    dragCurrentY = null;
+    isDragging = false;
+    junglegroundLevel = 500;
+    currentLevel = 'Jungle';
+    
+    const img = new Image();
+    img.src = 'jungle.png';
+    img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        drawStartButton();
+        drawHomeButton();
+    };
+}
+
+// Mountain variables
+let trashX = 900;
+let trashY = 200;
+let mountainPoints = 0;
+let level3Won = false;
+let isDraggingItem = false;
+let timeLimit = 1000;
+let trashAwarded = false;
+let mountainImg = null;
+let mountainBack=null;
+let holeX = 500;
+let holeY = 450;
+let holeWidth = 50;   // Horizontal radius (x-axis)
+let holeHeight = 30;  // Vertical radius (y-axis)
+
+const m = new Image();
+    m.src = 'mountainBack.png';
+    m.onload = () => {
+    mountainBack = m;
+};
+
+
+
+function mountainGameOver() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const img = new Image();
+    img.src = 'mountains.png';
+    img.onload = () => {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.fillStyle='white';
+    ctx.globalAlpha=0.5;
+    ctx.fillRect(190,100,600,450);
+    ctx.globalAlpha=1.0;
+    ctx.fillStyle = 'maroon';
+    ctx.font = 'bold 100px monospace';
+    ctx.strokeStyle='black';
+    ctx.lineWidth=4;
+    ctx.fillText('GAME OVER', 250, 300);
+    ctx.strokeText('GAME OVER',250,300);
+    ctx.fillStyle='maroon';
+    ctx.font='bold 26px monospace';
+    ctx.fillText('Do you wish to play again?',300,380);
+    ctx.fillText('YES',350,450);
+    ctx.fillText('NO',580,450);
+    currentGameStarted = null;
+    backgroundMusic.pause();
+    backgroundMusic.currentTime = 0;  // Reset for next game
+    gameOverSound.currentTime=0;
+    gameOverSound.play();
+    drawHomeButton();}
+}
+
+function mountainGameWon() {
+     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const img = new Image();
+    img.src = 'mountains.png';
+    img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.fillStyle='white';
+    ctx.globalAlpha=0.5;
+    ctx.fillRect(190,100,600,450);
+    ctx.globalAlpha=1.0;
+    ctx.fillStyle = 'maroon';
+    ctx.font = 'bold 100px monospace';
+    ctx.strokeStyle='black';
+    ctx.lineWidth=4;
+    ctx.fillText('GAME WON', 250, 300);
+    ctx.strokeText('GAME WON',250,300);
+    ctx.fillStyle='maroon';
+    ctx.font='bold 26px monospace';
+    ctx.fillText('Do you wish to play again?',300,380);
+    ctx.fillText('YES',350,450);
+    ctx.fillText('NO',580,450);
+    currentGameStarted = null;
+    backgroundMusic.pause();
+    backgroundMusic.currentTime = 0;  // Reset for next game
+    gameWonSound.currentTime=0;
+    gameWonSound.play();
+    drawHomeButton();
+    
+    }
+}
+
+function updateMountain() {
+    if (level3Won) {
+        mountainGameWon();
+        return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(mountainBack, 0, 0, canvas.width, canvas.height);
+    
+    // Draw hole as ellipse
+    ctx.beginPath();
+    ctx.ellipse(holeX, holeY, holeWidth, holeHeight, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+    
+    // Draw conch
+    if (conch) {
+        ctx.drawImage(conch, trashX - 50, trashY - 50, 100, 100);
+    }
+    
+    // UI text
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 24px monospace';
+    ctx.fillText('Timer ' + timeLimit, 100, 100);
+    ctx.fillText('Points ' + mountainPoints, 850, 50);
+    
+    // Collision detection
+    if (distance(holeX, holeY, trashX, trashY) < holeWidth + 50 && !trashAwarded) {
+        console.log('HIT! Respawning...');
+        mountainPoints += 100;
+        holeWidth += 10;  // Only width grows
+        trashAwarded = true;
+        
+        // Respawn outside hole
+        do {
+            trashX = Math.random() * 800 + 100;
+            trashY = Math.random() * 200 + 100;
+        } while (distance(holeX, holeY, trashX, trashY) < holeWidth + 50);
+        
+    }
+    
+    timeLimit -= 5;
+    if (timeLimit <= 0 && mountainPoints < 1000) {
+        mountainGameOver();
+    }
+    if (mountainPoints >= 1000) {
+        level3Won = true;
+        mountainGameWon();
+    }
+    drawHomeButton();
+}
+function drawMountain() {
+ holeX = 500;
+ holeY = 550;
+ holeWidth = 50;   // Horizontal radius (x-axis)
+holeHeight = 30;  // Vertical radius (y-axis)
+    trashX = 900;
+    trashY = 200;
+    mountainPoints = 0;
+    level3Won = false;
+    isDraggingItem = false;
+    trashAwarded = false;
+    timeLimit = 2000;
+    currentLevel = 'Mountain';
+    
+    const img = new Image();
+    img.src = 'mountains.png';
+    img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        drawStartButton();
+        drawHomeButton();
+    };
+}
+
+// Castle Rock variables
+// Castle Rock variables
+let boulderX = 450;
+let boulderY = 200;
+let castleRockGround = 500;
+let boulderFalling = false;
+let figureDirection = 1;
+let figureSpeed = 5;
+let level4Won = false;
+let castleRockPoints = 0;
+let figureX = 500;
+let figureY = 550;
+let boulderAwarded = false;
+let castleRockBack = null;
+let castleFrameIndex = 0;
+let castleAnimationCounter = 0;
+let castleAnimationSpeed = 5;
+const castleBackImg = new Image();
+castleBackImg.src = 'castleRockBack.png';
+castleBackImg.onload = () => {
+    castleRockBack = castleBackImg;
+};
+function castleRockGameWon() {
+     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const img = new Image();
+    img.src = 'beach.png';
+    img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.fillStyle='white';
+    ctx.globalAlpha=0.5;
+    ctx.fillRect(190,100,600,450);
+    ctx.globalAlpha=1.0;
+    ctx.fillStyle = 'maroon';
+    ctx.font = 'bold 100px monospace';
+    ctx.strokeStyle='black';
+    ctx.lineWidth=4;
+    ctx.fillText('GAME WON', 250, 300);
+    ctx.strokeText('GAME WON',250,300);
+    ctx.fillStyle='maroon';
+    ctx.font='bold 26px monospace';
+    ctx.fillText('Do you wish to play again?',300,380);
+    ctx.fillText('YES',350,450);
+    ctx.fillText('NO',580,450);
+    currentGameStarted = null;
+    backgroundMusic.pause();
+    backgroundMusic.currentTime = 0;  // Reset for next game
+    gameWonSound.currentTime=0;
+    gameWonSound.play();
+    drawHomeButton();
+    
+    }
+}
+function updateCastleRock() {
+    if (level4Won) {
+        castleRockGameWon();
+        return;
+    }
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Background
+    if (castleRockBack) {
+        ctx.drawImage(castleRockBack, 0, 0, canvas.width, canvas.height);
+    } else {
+        ctx.fillStyle = 'gray';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    
+    // Boulder
+    ctx.beginPath();
+    ctx.arc(boulderX, boulderY, 50, 0, Math.PI * 2);
+    ctx.fillStyle = 'gray';
+    ctx.fill();
+    
+    // Points
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 24px monospace';
+    ctx.fillText('Points ' + castleRockPoints, 850, 50);
+    
+    // Move figure
+    figureX += figureDirection * figureSpeed;
+    
+    // Boundaries (figure is 200x200, centered at figureX)
+    const leftBoundary = 460;
+    const rightBoundary = canvas.width-50;
+    
+    if (figureX - 100 <= leftBoundary) {
+        figureX = leftBoundary + 100;
+        figureDirection = 1;
+        castleFrameIndex = 0;
+        castleAnimationCounter = 0;
+    }
+    if (figureX + 100 >= rightBoundary) {
+        figureX = rightBoundary - 100;
+        figureDirection = -1;
+        castleFrameIndex = 0;
+        castleAnimationCounter = 0;
+    }
+    
+    // Draw animated figure
+    if (framesLoaded === frameFiles.length) {
+        castleAnimationCounter++;
+        if (castleAnimationCounter >= castleAnimationSpeed) {
+            castleAnimationCounter = 0;
+            castleFrameIndex++;
+            if (castleFrameIndex >= frames.length) castleFrameIndex = 0;
+        }
+        
+        ctx.save();
+        ctx.translate(figureX, figureY);
+        if (figureDirection === -1) {
+            ctx.scale(-1, 1);
+        }
+        ctx.drawImage(frames[castleFrameIndex], -100, -100, 200, 200);
+        ctx.restore();
+    } else {
+        // Fallback
+        ctx.beginPath();
+        ctx.arc(figureX, figureY, 30, 0, Math.PI * 2);
+        ctx.fillStyle = 'red';
+        ctx.fill();
+    }
+    
+    // RECTANGLE-CIRCLE COLLISION
+    if (boulderFalling && !boulderAwarded) {
+    // Smaller figure hitbox (centered on the body)
+    const figureLeft = figureX - 70;
+    const figureRight = figureX + 70;
+    const figureTop = figureY - 70;
+    const figureBottom = figureY + 70;
+    
+    // Smaller boulder hitbox
+    const boulderRadius = 30;
+    
+    if (figureRight > boulderX - boulderRadius &&
+        figureLeft < boulderX + boulderRadius &&
+        figureBottom > boulderY - boulderRadius &&
+        figureTop < boulderY + boulderRadius) {
+        castleRockPoints += 100;
+        boulderAwarded = true;
+    }
+}
+    
+    // Boulder falling
+    if (boulderFalling) {
+        boulderX += 8;
+        boulderY += 12;
+    }
+    
+    // Boulder hit ground (radius 40)
+    if (boulderY + 40 > castleRockGround) {
+        boulderX = 450;
+        boulderY = 200;
+        boulderFalling = false;
+        boulderAwarded = false;
+    }
+    
+    if (castleRockPoints >= 1000) {
+        level4Won = true;
+    }
+    
+    drawHomeButton();
+}
+
+
+function drawCastleRock() {
+    boulderX = 450;
+    boulderY = 200;
+    boulderFalling = false;
+    figureDirection = 1;
+    figureSpeed = 5;
+    castleRockPoints = 0;
+    figureX = 500;
+    figureY = 550;
+    level4Won = false;
+    boulderAwarded = false;
+    castleFrameIndex = 0;
+    castleAnimationCounter = 0;
+    currentLevel = 'CastleRock';
+    
+    const img = new Image();
+    img.src = 'castleRock.png';
+    img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        drawStartButton();
+        drawHomeButton();
+    };
+}
+// Tower variables
+let playerTowerX = 500;
+let playerTowerY = 520;
+let playerWidth = 50;
+let playerHeight = 50;
+let playerVX = 0;
+let playerVY = 0;
+let isOnGround = false;
+let platforms = [];
+let towerHoleY = 700;
+let holeRiseSpeed = 1;
+let towerPoints = 0;
+let level5Won = false;
+let level5Over = false;
+let towerGravity = 0.8;
+let jumpPower = -20;
+let platformWidth = 150;
+let platformHeight = 10;
+let platformGap = 70;
+let cameraY = 0;
+let leftPressed = false;
+let rightPressed = false;
+let towerImg = null;
+
+function towerGameWon() {
+     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const img = new Image();
+    img.src = 'tower.png';
+    img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.fillStyle='white';
+    ctx.globalAlpha=0.5;
+    ctx.fillRect(190,100,600,450);
+    ctx.globalAlpha=1.0;
+    ctx.fillStyle = 'maroon';
+    ctx.font = 'bold 100px monospace';
+    ctx.strokeStyle='black';
+    ctx.lineWidth=4;
+    ctx.fillText('GAME WON', 250, 300);
+    ctx.strokeText('GAME WON',250,300);
+    ctx.fillStyle='maroon';
+    ctx.font='bold 26px monospace';
+    ctx.fillText('Do you wish to play again?',300,380);
+    ctx.fillText('YES',350,450);
+    ctx.fillText('NO',580,450);
+    currentGameStarted = null;
+    backgroundMusic.pause();
+    backgroundMusic.currentTime = 0;  // Reset for next game
+    gameWonSound.currentTime=0;
+    gameWonSound.play();
+    drawHomeButton();
+    
+    }
+}
+
+function towerGameOver() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const img = new Image();
+    img.src = 'tower.png';
+    img.onload = () => {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.fillStyle='white';
+    ctx.globalAlpha=0.5;
+    ctx.fillRect(190,100,600,450);
+    ctx.globalAlpha=1.0;
+    ctx.fillStyle = 'maroon';
+    ctx.font = 'bold 100px monospace';
+    ctx.strokeStyle='black';
+    ctx.lineWidth=4;
+    ctx.fillText('GAME OVER', 250, 300);
+    ctx.strokeText('GAME OVER',250,300);
+    ctx.fillStyle='maroon';
+    ctx.font='bold 26px monospace';
+    ctx.fillText('Do you wish to play again?',300,380);
+    ctx.fillText('YES',350,450);
+    ctx.fillText('NO',580,450);
+    currentGameStarted = null;
+    backgroundMusic.pause();
+    backgroundMusic.currentTime = 0;  // Reset for next game
+    gameOverSound.currentTime=0;
+    gameOverSound.play();
+    drawHomeButton();}
+}
+
+function generatePlatform(x, y, width) {
+    return {
+        x: x,
+        y: y,
+        width: width,
+        height: platformHeight
+    };
+}
+
+function generateInitialPlatforms() {
+    platforms = [];
+    platforms.push(generatePlatform(400, 550, 200));
+    platforms.push(generatePlatform(300, 450, 150));
+    platforms.push(generatePlatform(500, 350, 120));
+    platforms.push(generatePlatform(200, 250, 150));
+    platforms.push(generatePlatform(600, 150, 150));
+}
+
+function updateTower() {
+    if (level5Won) {
+        towerGameWon();
+        return;
+    }
+    if (level5Over) {
+        towerGameOver();
+        return;
+    }
+    
+    // 1. Update player movement
+    playerVY += towerGravity;
+    playerTowerY += playerVY;
+    
+    if (leftPressed) playerVX = -5;
+    else if (rightPressed) playerVX = 5;
+    else playerVX = 0;
+    playerTowerX += playerVX;
+    
+    // 2. Platform collision
+    if (playerVY > 0) {
+        for (let platform of platforms) {
+            if (playerTowerY + playerHeight >= platform.y &&
+                playerTowerY + playerHeight <= platform.y + 20 &&
+                playerTowerX + playerWidth > platform.x &&
+                playerTowerX < platform.x + platform.width) {
+                playerTowerY = platform.y - playerHeight;
+                playerVY = 0;
+                playerVX = 0;
+                isOnGround = true;
+                break;
+            }
+        }
+    }
+    
+    // 3. Update camera AFTER player position (before drawing)
+    cameraY = playerTowerY - 300;
+   
+    
+    // 4. Clear and draw everything with camera offset
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw hole
+    ctx.beginPath();
+    ctx.ellipse(500, towerHoleY - cameraY, 100, 25, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+    
+    // Draw platforms
+    ctx.fillStyle = 'green';
+    for (let platform of platforms) {
+        ctx.fillRect(platform.x, platform.y - cameraY, platform.width, platform.height);
+    }
+    
+    // Draw player
+    ctx.fillStyle = 'red';
+    ctx.fillRect(playerTowerX, playerTowerY - cameraY, playerWidth, playerHeight);
+    
+    // 5. Rest of the logic (hole rising, platform generation, etc.)
+    towerHoleY -= holeRiseSpeed;
+    if (playerTowerY + playerHeight > towerHoleY) {
+        level5Over = true;
+    }
+    
+    // Generate new platforms
+    let highestWorldY = platforms[0].y;
+    for (let platform of platforms) {
+        if (platform.y < highestWorldY) {
+            highestWorldY = platform.y;
+        }
+    }
+    
+    if (highestWorldY < cameraY + 300) {
+        let newY = highestWorldY - platformGap;
+        let newX = Math.random() * (canvas.width - platformWidth);
+        platforms.push(generatePlatform(newX, newY, platformWidth));
+    }
+    
+    platforms = platforms.filter(p => p.y - cameraY < canvas.height + 100);
+    
+    // Points
+    towerPoints += 1;
+    ctx.fillStyle = 'white';
+    ctx.font = '24px monospace';
+    ctx.fillText('points ' + towerPoints, 850, 50);
+    
+    if (towerPoints >= 1500) {
+        level5Won = true;
+    }
+    
+    drawHomeButton();
+    // After generating new platforms, add this:
+console.log('Player Y:', playerTowerY, 'Camera Y:', cameraY);
+console.log('Highest platform Y:', highestWorldY, 'Condition:', highestWorldY < cameraY + 300);
+console.log('Number of platforms:', platforms.length);
+}
+
+function drawTower() {
+    cameraY = 0;
+    playerTowerX = 500;
+    playerTowerY = 550 - playerHeight;
+    playerVX = 0;
+    playerVY = 0;
+    isOnGround = true;
+    towerHoleY = 700;
+    holeRiseSpeed = 1;
+    towerPoints = 0;
+    level5Won = false;
+    level5Over = false;
+    leftPressed = false;
+    rightPressed = false;
+    platforms = [];
+    generateInitialPlatforms();
+    currentLevel = 'Tower';
+    
+    const img = new Image();
+    img.src = 'tower.png';
+    img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        drawStartButton();
+        drawHomeButton();
+    };
+}
+
+function drawMap() {
+    if (currentScreen !== 'map') return;
+    
+    const mapgrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    mapgrad.addColorStop(0, '#1E90FF');
+    mapgrad.addColorStop(1, '#0B3D6B');
+    ctx.fillStyle = mapgrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.beginPath();
+    ctx.shadowBlur = 0;
+    for (let i = 0; i < mapLocations.length - 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(mapLocations[i].x, mapLocations[i].y);
+        ctx.lineTo(mapLocations[i + 1].x, mapLocations[i + 1].y);
+        ctx.strokeStyle = '#DAA520';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([8, 6]);
+        ctx.stroke();
+    }
+
+    ctx.setLineDash([]);
+    // Draw islands first (so lines go on top)
+    for (let loc of mapLocations) {
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        
+        // Outer circle (glow)
+        ctx.beginPath();
+        ctx.arc(loc.x, loc.y, 30, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,200,0.2)';
+        ctx.fill();
+        
+        // Main island circle
+        ctx.beginPath();
+        ctx.arc(loc.x, loc.y, 26, 0, Math.PI * 2);
+        ctx.fillStyle = loc.color;
+        ctx.fill();
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Number background
+        ctx.beginPath();
+        ctx.arc(loc.x, loc.y, 18, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fill();
+        
+        // Number
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 18px monospace';
+        ctx.shadowBlur = 0;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(loc.number, loc.x, loc.y);
+        
+        // Name label
+        ctx.fillStyle = 'white';
+        ctx.font = '18px monospace';
+        ctx.fillText(loc.name, loc.x, loc.y - 45);
+    }
+    
+    
+    
+    
+    
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+}
+function drawStartButton() {
+    const img = new Image();
+    img.src = 'startButton.png';
+    img.onload = () => {
+        ctx.drawImage(img, 320, 225, 400, 200);
+    };
+}
+
+function switchScreen() {
+    if (currentScreen == 'map') {
+        drawMap();
+        currentGameStarted = null;
+        currentLevel = null;
+    } else if (currentScreen == 'Beach') {
+        drawBeach();
+    } else if (currentScreen == 'Jungle') {
+        drawJungle();
+    } else if (currentScreen == 'Mountain') {
+        drawMountain();
+    } else if (currentScreen == 'CastleRock') {
+        drawCastleRock();
+    } else if (currentScreen == 'Tower') {
+        drawTower();
+    }
+}
+
+switchScreen();
+
+</script>
+</body>
+</html>
